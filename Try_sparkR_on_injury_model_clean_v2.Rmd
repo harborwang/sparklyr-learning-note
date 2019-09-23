@@ -1,0 +1,57 @@
+---
+title: "Try Spark R on injury analysis"
+output: html_notebook
+---
+## Note: try to load injury data on Spark. 
+
+## Date: Sept 20, 2019
+## Hao Wang
+
+- load library
+```{r}
+library(sparklyr)
+library(dplyr)
+library(dbplyr)
+```
+
+
+- Install Spark version 2.4.3 locally. Only need to do once. 
+```{r}
+  #spark_install(version = "2.4.3")
+```
+
+- Setup Spark
+```{r}
+  conf <- spark_config()
+  conf$`sparklyr.shell.driver-memory` <- "6G" 
+  conf$spark.memory.fraction <- 0.8 
+```
+              
+- start up spark
+```{r}
+  sc <- spark_connect(master = "local", config = conf, version = "2.4.3")
+```
+
+- load the injury data into Spark. I only load a month of data. 
+
+```{r}
+
+injury_tib_201709 <- spark_read_csv(sc, name = "injury_sp_201709", path = "lc_200_vol_emp_inj_092017.csv" )
+
+```
+
+- basic data manipulation test.
+
+```{r}
+test<- injury_tib_201709 %>% 
+  select(injury_flag, Key_Figure, stairs, Hours, year, month) %>% 
+  summarize(mean_stairs = mean(stairs))
+test
+```
+
+
+
+- disconnect spark.
+```{r}
+spark_disconnect(sc)
+```

@@ -1,0 +1,133 @@
+---
+title: "Try Spark R on injury analysis"
+output: html_notebook
+---
+## Note: 
+
+Try to load injury data on Spark. 
+
+## Date: Sept 20, 2019
+
+- load library
+```{r}
+library(sparklyr)
+library(dplyr)
+library(dbplyr)
+library(DBI)
+```
+
+
+- Install Spark version 2.4.3 locally in your computer
+```{r}
+  # spark_install(version = "2.4.3")
+```
+
+- Setup Spark
+                    
+```{r}
+  conf <- spark_config()
+  conf$`sparklyr.shell.driver-memory` <- "6G" 
+  conf$spark.memory.fraction <- 0.8 
+```
+              
+- start up spark
+```{r}
+  sc <- spark_connect(master = "local", config = conf, version = "2.4.3")
+```
+
+- load the injury data into Spark. I only load a month of data. 
+
+```{r}
+
+injury_tib_201709 <- spark_read_csv(sc, name = "injury_sp_201709", path = "lc_200_vol_emp_inj_092017.csv" )
+object.size(injury_sdf)
+
+glimpse(injury_tib_201709)
+
+result <- dbGetQuery(sc, "SELECT COUNT(*) FROM injury_sp_201709")
+
+result
+
+```
+
+- Load the whold injury data. LC_200_VOL_EMP_INJ.csv
+
+```{r}
+injury_tib <- spark_read_csv(sc, name = "injury_sp_all", path = "lc_200_vol_emp_inj.csv" )
+```
+
+- basic query on the data.
+
+```{r}
+
+```
+
+
+- basic data manipulation.
+
+```{r}
+test<- injury_tib_201709 %>% 
+  select(injury_flag, Key_Figure, stairs, Hours, year, month) %>% 
+  summarize(mean_stairs = mean(stairs))
+test
+```
+
+
+
+Test on sql query. 
+```{r}
+
+  top10 <- dbGetQuery(sc, "Select * from injury limit 10")
+  
+  names(top10)
+  
+  dbGetQuery(sc, "Select count(*) as n from injury limit 200")
+```
+
+## Data manipulation.
+
+Do some manipulation on spark data frame x.
+
+1. build a subset and test it.
+```{r}
+
+# I think the SAS has some problem. No problem for CSV file.
+
+tt_csv<- injury_tib_201709 %>% 
+  select(injury_flag, Key_Figure, stairs, Hours, year, month) %>% 
+  summarize(mean_stairs = mean(stairs))
+
+tt_csv
+
+compute(injury_tib_201709, "injury_tib_201709_com_rstl")
+
+injury_tib_201709
+
+injury_tib_201709 %>% 
+  group_by(injury_flag) %>% 
+  summarise(mean_stairs = mean(stairs))
+
+```
+
+The dplyr functions don't work on the sas data. I will try to convert the original file into csv and then load into Spark.
+
+
+
+
+
+
+Drop table from Spark Context. Only can drop one table at one time.
+```{r}
+dplyr::db_drop_table(sc, "airlines_sp")
+dplyr::db_drop_table(sc, "flights_sp")
+
+dplyr::db_drop_table(sc, "injury_sp_201709")
+```
+I can use dplyr on local spark_tbl.
+ 
+
+
+- disconnect spark.
+```{r}
+spark_disconnect(sc)
+```
